@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ojigi — ¿Cuánto te inclinas?</title>
+<style>
+  :root{
+    --bg:#f6f1e7; --ink:#1d1a16; --muted:#7a7065; --red:#b7282e; --card:#fffdf8;
+    --line:#e3d9c7; --ok:#2f7d4f; --mid:#c98a1b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans",sans-serif}
+  body{display:flex;justify-content:center}
+  main{width:100%;max-width:460px;padding:20px 18px 40px;display:flex;flex-direction:column;gap:16px;min-height:100%}
+  h1{font-size:28px;margin:8px 0 0;letter-spacing:.5px}
+  h1 span{color:var(--red)}
+  h2{font-size:20px;margin:0}
+  p{margin:0;line-height:1.45}
+  .muted{color:var(--muted);font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  button{font:inherit;font-size:18px;font-weight:600;border:0;border-radius:14px;padding:16px;
+    background:var(--ink);color:#fff;width:100%;cursor:pointer}
+  button.red{background:var(--red)}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500;font-size:16px;padding:12px}
+  button:disabled{opacity:.4}
+  input{font:inherit;font-size:17px;padding:12px;border-radius:12px;border:1px solid var(--line);width:100%;background:#fff}
+  .row{display:flex;gap:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:#efe6d6;border-radius:999px;padding:6px 12px;font-size:15px;display:flex;align-items:center;gap:6px}
+  .chip b{cursor:pointer;color:var(--muted)}
+  .hidden{display:none!important}
+  .screen{display:flex;flex-direction:column;gap:16px}
+  .scenario{font-size:22px;line-height:1.35;font-weight:600}
+  .turn{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--red);font-weight:700}
+  .big{font-size:72px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;line-height:1}
+  .status{text-align:center;font-size:18px;min-height:26px}
+  svg{display:block;margin:0 auto}
+  table{width:100%;border-collapse:collapse;font-size:16px}
+  td{padding:8px 4px;border-bottom:1px solid var(--line)}
+  td:last-child{text-align:right;font-weight:700}
+  .verdict{font-size:26px;font-weight:800;text-align:center}
+  .types{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .types div{background:#efe6d6;border-radius:12px;padding:10px 4px}
+  .types b{display:block;font-size:20px}
+  .types small{color:var(--muted)}
+  .warn{background:#fbe9e7;border:1px solid #f1c4bd;color:#7a2a20}
+</style>
+</head>
+<body>
+<main>
+
+  <!-- PORTADA -->
+  <section id="s-home" class="screen">
+    <h1>お辞儀 <span>Ojigi</span></h1>
+    <p>Cada jugador recibe una situación y tiene que hacer la reverencia con el ángulo correcto. El móvil mide cuánto se inclina.</p>
+
+    <div class="card">
+      <h2 style="margin-bottom:10px">Jugadores</h2>
+      <div class="row">
+        <input id="pname" placeholder="Nombre" maxlength="16">
+        <button id="addp" style="width:auto;padding:12px 18px">+</button>
+      </div>
+      <div id="plist" class="chips" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <p class="muted" style="margin-bottom:8px">Rondas por jugador</p>
+      <div class="row" id="rounds">
+        <button class="ghost" data-r="2">2</button>
+        <button class="ghost" data-r="3">3</button>
+        <button class="ghost" data-r="5">5</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p style="font-weight:600;margin-bottom:6px">Cómo sujetar el móvil</p>
+      <p class="muted">Pegado al pecho (sobre el esternón), en vertical y con la pantalla hacia fuera. Ponte recto, pulsa el botón, espera la cuenta atrás, inclínate, aguanta un segundo y vuelve a subir.</p>
+    </div>
+
+    <div id="sensorWarn" class="card warn hidden"></div>
+
+    <button id="start" class="red">Empezar juego</button>
+    <button id="free" class="ghost">Modo práctica (ver el ángulo en directo)</button>
+  </section>
+
+  <!-- SITUACIÓN -->
+  <section id="s-turn" class="screen hidden">
+    <div class="turn" id="turnLabel"></div>
+    <div class="card"><p class="scenario" id="scenarioText"></p></div>
+    <p class="muted">Pasa el móvil al jugador. Que se lo ponga en el pecho y pulse cuando esté recto.</p>
+    <button id="measure" class="red">Estoy recto — medir</button>
+    <button id="skip" class="ghost">Cambiar situación</button>
+  </section>
+
+  <!-- MEDICIÓN -->
+  <section id="s-measure" class="screen hidden">
+    <div class="turn" id="measureLabel"></div>
+    <div class="status" id="mstatus"></div>
+    <svg id="gauge" width="300" height="190" viewBox="0 0 300 190"></svg>
+    <div class="big" id="angleLive">0°</div>
+    <button id="stop" class="ghost">Terminar ya</button>
+  </section>
+
+  <!-- RESULTADO -->
+  <section id="s-result" class="screen hidden">
+    <div class="turn" id="resLabel"></div>
+    <div class="verdict" id="verdict"></div>
+    <svg id="gaugeRes" width="300" height="190" viewBox="0 0 300 190"></svg>
+    <div class="card">
+      <table>
+        <tr><td>Tu reverencia</td><td id="rMeasured"></td></tr>
+        <tr><td>Lo correcto</td><td id="rTarget"></td></tr>
+        <tr><td>Diferencia</td><td id="rDiff"></td></tr>
+        <tr><td>Puntos</td><td id="rPts"></td></tr>
+      </table>
+    </div>
+    <p class="muted" id="rExplain"></p>
+    <button id="retry" class="ghost">Repetir medición (no cuenta)</button>
+    <button id="next" class="red">Siguiente</button>
+  </section>
+
+  <!-- MARCADOR -->
+  <section id="s-end" class="screen hidden">
+    <h1>Marcador final</h1>
+    <div class="card"><table id="scoreTable"></table></div>
+    <div class="types">
+      <div><b>15°</b>Eshaku<br><small>会釈</small></div>
+      <div><b>30°</b>Keirei<br><small>敬礼</small></div>
+      <div><b>45°</b>Saikeirei<br><small>最敬礼</small></div>
+    </div>
+    <button id="again" class="red">Jugar otra vez</button>
+  </section>
+
+  <!-- PRÁCTICA -->
+  <section id="s-free" class="screen hidden">
+    <h2>Modo práctica</h2>
+    <p class="muted">Ponte recto y pulsa «Poner a cero». Luego inclínate.</p>
+    <svg id="gaugeFree" width="300" height="190" viewBox="0 0 300 190"></svg>
+    <div class="big" id="angleFree">0°</div>
+    <div class="status" id="freeType"></div>
+    <button id="zero" class="red">Poner a cero</button>
+    <button id="back" class="ghost">Volver</button>
+  </section>
+
+</main>
+
+<script>
+/* ---------- Situaciones ---------- */
+const TYPES = {
+  15:{name:"Eshaku (会釈)", desc:"Saludo ligero de 15°: cruzarse con alguien, saludos cotidianos, entrar o salir de una sala."},
+  30:{name:"Keirei (敬礼)", desc:"Reverencia formal de 30°: recibir a clientes, presentarse, dar las gracias a un superior."},
+  45:{name:"Saikeirei (最敬礼)", desc:"Reverencia máxima de 45°: disculpas serias, gratitud profunda, ceremonias."}
+};
+const SCENARIOS = [
+  ["Te cruzas con tu jefe en el pasillo de la oficina.",15],
+  ["Entras en la sala de reuniones donde ya están tus compañeros.",15],
+  ["Saludas al vecino por la mañana al sacar la basura.",15],
+  ["El dependiente del konbini te da el cambio.",15],
+  ["Un compañero te sujeta la puerta del ascensor.",15],
+  ["Recibes a un cliente importante en la entrada de la empresa.",30],
+  ["Te presentas al empezar una entrevista de trabajo.",30],
+  ["Le das las gracias a tu profesor por ayudarte con un examen.",30],
+  ["Conoces a los padres de tu pareja por primera vez.",30],
+  ["Despides a un cliente al terminar una reunión de negocios.",30],
+  ["Tu empresa ha enviado un pedido equivocado y pides perdón al cliente en persona.",45],
+  ["Le das las gracias a alguien que te ha salvado de un accidente.",45],
+  ["Pides perdón al dueño de una casa por romperle un jarrón muy valioso.",45],
+  ["En la boda, das las gracias a los invitados en nombre de la familia.",45],
+  ["Tu jefe te ha conseguido un ascenso enorme y se lo agradeces de corazón.",45]
+];
+
+/* ---------- Sensor ---------- */
+let g = null;              // vector de gravedad filtrado
+let g0 = null;             // vector de referencia (recto)
+let sensorOn = false, gotData = false;
+const ALPHA = 0.25;        // suavizado
+
+function onMotion(e){
+  const a = e.accelerationIncludingGravity;
+  if(!a || a.x === null) return;
+  if(!motionSeen){ motionSeen = true; g = null; g0 = null; }
+  gotData = true;
+  const v = [a.x, a.y, a.z];
+  if(!g) g = v; else g = g.map((c,i)=>c + ALPHA*(v[i]-c));
+  tick();
+}
+// Alternativa: si el acelerómetro no da datos, usar la orientación (beta/gamma) para reconstruir la gravedad
+let motionSeen = false;
+function onOrient(e){
+  if(motionSeen || e.beta === null || e.beta === undefined) return;
+  gotData = true;
+  const b = e.beta*Math.PI/180, gm = (e.gamma||0)*Math.PI/180;
+  const v = [-Math.cos(b)*Math.sin(gm), Math.sin(b), Math.cos(b)*Math.cos(gm)];
+  if(!g) g = v; else g = g.map((c,i)=>c + ALPHA*(v[i]-c));
+  tick();
+}
+function angleFromRef(){
+  if(!g || !g0) return 0;
+  const dot = g[0]*g0[0]+g[1]*g0[1]+g[2]*g0[2];
+  const n = Math.hypot(...g)*Math.hypot(...g0);
+  if(!n) return 0;
+  return Math.acos(Math.max(-1,Math.min(1,dot/n)))*180/Math.PI;
+}
+async function enableSensor(){
+  if(sensorOn) return true;
+  try{
+    if(typeof DeviceMotionEvent !== "undefined" && typeof DeviceMotionEvent.requestPermission === "function"){
+      const r = await DeviceMotionEvent.requestPermission();
+      if(r !== "granted"){ showWarn("Sin permiso para el sensor de movimiento. Recarga la página y pulsa «Permitir»."); return false; }
+    }
+    if(typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"){
+      try{ await DeviceOrientationEvent.requestPermission(); }catch(e){}
+    }
+    window.addEventListener("devicemotion", onMotion);
+    window.addEventListener("deviceorientation", onOrient);
+    sensorOn = true;
+    setTimeout(()=>{ if(!gotData) showWarn("No llegan datos del sensor. "+(window.isSecureContext?"":"La página no está en https://, y el navegador bloquea el sensor. ")+"Ábrela desde un enlace https:// en Chrome o Safari."); },1500);
+    return true;
+  }catch(err){ showWarn("No se pudo activar el sensor: "+err.message); return false; }
+}
+function showWarn(t){ const w=$("sensorWarn"); w.textContent=t; w.classList.remove("hidden"); }
+
+/* ---------- Estado de juego ---------- */
+const $ = id => document.getElementById(id);
+let players = [], roundsPer = 3, queue = [], turnIdx = 0, current = null;
+let mode = null; // "measure" | "free"
+let phase = null, peak = 0, startedAt = 0, phaseT = 0, armed = false, settleSamples = [];
+
+function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden")); $(id).classList.remove("hidden"); window.scrollTo(0,0); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function renderPlayers(){
+  $("plist").innerHTML = players.map((p,i)=>`<span class="chip">${esc(p.name)} <b data-i="${i}">✕</b></span>`).join("")
+    || '<span class="muted">Añade al menos un jugador</span>';
+  $("plist").querySelectorAll("b").forEach(b=>b.onclick=()=>{players.splice(+b.dataset.i,1);renderPlayers();});
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function setRounds(r){ roundsPer=r; document.querySelectorAll("#rounds button").forEach(b=>{b.style.background=(+b.dataset.r===r)?"#efe6d6":"transparent";}); }
+
+$("addp").onclick = ()=>{ const n=$("pname").value.trim(); if(!n) return; players.push({name:n,score:0}); $("pname").value=""; renderPlayers(); };
+$("pname").onkeydown = e=>{ if(e.key==="Enter") $("addp").click(); };
+document.querySelectorAll("#rounds button").forEach(b=>b.onclick=()=>setRounds(+b.dataset.r));
+
+$("start").onclick = async ()=>{
+  if(!players.length){ $("pname").focus(); return; }
+  if(!await enableSensor()) return;
+  players.forEach(p=>p.score=0);
+  // reparte situaciones equilibrando 15/30/45
+  const pool = shuffle(SCENARIOS.slice());
+  queue = [];
+  let k=0;
+  for(let r=0;r<roundsPer;r++) for(const p of players){ queue.push({player:p, sc:pool[k%pool.length]}); k++; }
+  turnIdx = 0; showTurn();
+};
+$("free").onclick = async ()=>{ if(!await enableSensor()) return; mode="free"; g0 = g? g.slice():null; show("s-free"); };
+$("zero").onclick = ()=>{ if(g) g0 = g.slice(); };
+$("back").onclick = ()=>{ mode=null; show("s-home"); };
+
+function showTurn(){
+  current = queue[turnIdx];
+  const total = queue.length;
+  $("turnLabel").textContent = `Turno de ${current.player.name} · ${turnIdx+1}/${total}`;
+  $("scenarioText").textContent = current.sc[0];
+  show("s-turn");
+}
+$("skip").onclick = ()=>{
+  const used = new Set(queue.map(q=>q.sc[0]));
+  const alt = shuffle(SCENARIOS.filter(s=>!used.has(s[0])));
+  current.sc = alt[0] || shuffle(SCENARIOS.slice())[0];
+  showTurn();
+};
+$("measure").onclick = ()=>startMeasure();
+$("retry").onclick = ()=>{ current.player.score -= current.pts; startMeasure(); };
+
+function startMeasure(){
+  mode = "measure"; phase = "countdown"; phaseT = performance.now(); peak = 0; armed = false; settleSamples = [];
+  $("measureLabel").textContent = current.player.name;
+  $("angleLive").textContent = "—";
+  drawGauge($("gauge"),0,null);
+  show("s-measure");
+  if(!gotData) $("mstatus").textContent = "Esperando al sensor…";
+}
+$("stop").onclick = ()=>finishMeasure();
+
+/* ---------- Bucle con cada muestra ---------- */
+function tick(){
+  const now = performance.now();
+  if(mode==="free"){
+    if(!g0 && g) g0 = g.slice();
+    const a = angleFromRef();
+    $("angleFree").textContent = Math.round(a)+"°";
+    $("freeType").textContent = a<7?"Recto":a<22?"≈ Eshaku (15°)":a<37?"≈ Keirei (30°)":a<60?"≈ Saikeirei (45°)":"¡Demasiado!";
+    drawGauge($("gaugeFree"),a,null);
+    return;
+  }
+  if(mode!=="measure") return;
+
+  if(phase==="countdown"){
+    const left = 3 - Math.floor((now-phaseT)/1000);
+    if(left>0){ $("mstatus").textContent = `Quieto y recto… ${left}`; return; }
+    g0 = g.slice(); phase="bow"; startedAt = now;
+    $("mstatus").innerHTML = "<b>¡Inclínate!</b>"; vibrate(80);
+  }
+  if(phase==="bow"){
+    const a = angleFromRef();
+    $("angleLive").textContent = Math.round(a)+"°";
+    drawGauge($("gauge"),a,null);
+    if(a>peak) peak=a;
+    if(a>8){ armed = true; settleSamples.push(a); }
+    // fin automático: ya se ha inclinado y ha vuelto casi a recto
+    if(armed && peak>10 && a < Math.min(6, peak*0.3)) finishMeasure();
+    if(now-startedAt > 15000) finishMeasure();
+  }
+}
+function vibrate(ms){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+
+function measuredAngle(){
+  // Usamos el ángulo que se mantuvo: media del 20 % superior de las muestras (evita picos por tirón)
+  if(!settleSamples.length) return peak;
+  const s = settleSamples.slice().sort((a,b)=>b-a);
+  const top = s.slice(0, Math.max(3, Math.ceil(s.length*0.2)));
+  return top.reduce((x,y)=>x+y,0)/top.length;
+}
+
+function finishMeasure(){
+  if(mode!=="measure") return;
+  mode = null; phase = null; vibrate([60,60,60]);
+  const m = Math.round(measuredAngle());
+  const t = current.sc[1];
+  const d = Math.abs(m-t);
+  const pts = d<=5?3 : d<=10?2 : d<=15?1 : 0;
+  current.pts = pts; current.player.score += pts;
+  $("resLabel").textContent = `${current.player.name} · ${current.sc[0]}`;
+  $("verdict").textContent = pts===3?"¡Perfecto! 🙇":pts===2?"¡Muy bien!":pts===1?"Casi…":(m<t?"Te has quedado corto":"¡Te has pasado!");
+  $("verdict").style.color = pts>=2?"var(--ok)":pts===1?"var(--mid)":"var(--red)";
+  $("rMeasured").textContent = m+"°";
+  $("rTarget").textContent = `${t}° · ${TYPES[t].name}`;
+  $("rDiff").textContent = d+"°";
+  $("rPts").textContent = "+"+pts;
+  $("rExplain").textContent = TYPES[t].desc;
+  drawGauge($("gaugeRes"),m,t);
+  $("next").textContent = turnIdx+1<queue.length ? "Siguiente turno" : "Ver marcador";
+  show("s-result");
+}
+$("next").onclick = ()=>{ turnIdx++; if(turnIdx<queue.length) showTurn(); else showEnd(); };
+
+function showEnd(){
+  const sorted = players.slice().sort((a,b)=>b.score-a.score);
+  const max = roundsPer*3;
+  $("scoreTable").innerHTML = sorted.map((p,i)=>`<tr><td>${i===0?"🏆 ":""}${esc(p.name)}</td><td>${p.score} / ${max}</td></tr>`).join("");
+  show("s-end");
+}
+$("again").onclick = ()=>show("s-home");
+
+/* ---------- Medidor ---------- */
+// Cuarto de círculo: 0° = vertical (persona recta), 90° = horizontal
+function drawGauge(svg, angle, target){
+  const cx=60, cy=170, R=140;
+  const pt = (deg,r)=>[cx + r*Math.sin(deg*Math.PI/180), cy - r*Math.cos(deg*Math.PI/180)];
+  const arc = (a1,a2,r)=>{const [x1,y1]=pt(a1,r),[x2,y2]=pt(a2,r);return `M${x1},${y1} A${r},${r} 0 0 1 ${x2},${y2}`;};
+  let h = `<path d="${arc(0,90,R)}" fill="none" stroke="#e3d9c7" stroke-width="14" stroke-linecap="round"/>`;
+  if(target!=null){
+    h += `<path d="${arc(Math.max(0,target-5),target+5,R)}" fill="none" stroke="#2f7d4f" stroke-width="14"/>`;
+    h += `<path d="${arc(Math.max(0,target-10),Math.max(0,target-5),R)}" fill="none" stroke="#c98a1b" stroke-width="14" opacity=".6"/>`;
+    h += `<path d="${arc(target+5,target+10,R)}" fill="none" stroke="#c98a1b" stroke-width="14" opacity=".6"/>`;
+  }
+  [15,30,45].forEach(d=>{ const [x1,y1]=pt(d,R-12),[x2,y2]=pt(d,R+12),[tx,ty]=pt(d,R+26);
+    h+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#7a7065" stroke-width="2"/>`;
+    h+=`<text x="${tx}" y="${ty+4}" font-size="12" fill="#7a7065" text-anchor="middle">${d}°</text>`; });
+  const a = Math.max(0,Math.min(95,angle));
+  // "persona": tronco que se inclina desde la cadera (cx,cy)
+  const [hx,hy] = pt(a,110), [px,py]=pt(a,R);
+  h += `<line x1="${cx}" y1="${cy}" x2="${hx}" y2="${hy}" stroke="#1d1a16" stroke-width="10" stroke-linecap="round"/>`;
+  const [hdx,hdy] = pt(a,128);
+  h += `<circle cx="${hdx}" cy="${hdy}" r="14" fill="#b7282e"/>`;
+  h += `<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy+20}" stroke="#1d1a16" stroke-width="10" stroke-linecap="round"/>`;
+  h += `<circle cx="${px}" cy="${py}" r="6" fill="#1d1a16"/>`;
+  svg.innerHTML = h;
+}
+
+renderPlayers(); setRounds(3);
+drawGauge($("gaugeFree"),0,null);
+if(!("DeviceMotionEvent" in window)) showWarn("Este navegador no tiene sensor de movimiento. Ábrelo en el móvil.");
+else if(!window.isSecureContext) showWarn("Esta página no está abierta desde un enlace https://, así que el navegador no dejará leer el sensor. Ábrela desde el enlace https.");
+</script>
+</body>
+</html>
