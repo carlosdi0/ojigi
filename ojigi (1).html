@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ojigi — ¿Cuánto te inclinas?</title>
+<style>
+  :root{
+    --bg:#f6f1e7; --ink:#1d1a16; --muted:#7a7065; --red:#b7282e; --card:#fffdf8;
+    --line:#e3d9c7; --ok:#2f7d4f; --mid:#c98a1b; --sel:#efe6d6;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans",sans-serif}
+  body{display:flex;justify-content:center}
+  main{width:100%;max-width:460px;padding:20px 18px 40px;display:flex;flex-direction:column;gap:16px;min-height:100%}
+  h1{font-size:28px;margin:8px 0 0;letter-spacing:.5px}
+  h1 span{color:var(--red)}
+  h2{font-size:20px;margin:0}
+  p{margin:0;line-height:1.45}
+  .muted{color:var(--muted);font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  button{font:inherit;font-size:18px;font-weight:600;border:0;border-radius:14px;padding:16px;
+    background:var(--ink);color:#fff;width:100%;cursor:pointer}
+  button.red{background:var(--red)}
+  button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);font-weight:500;font-size:16px;padding:12px}
+  button.ghost.on{background:var(--sel);border-color:#cdbfa6;font-weight:700}
+  button:disabled{opacity:.4}
+  input{font:inherit;font-size:17px;padding:12px;border-radius:12px;border:1px solid var(--line);width:100%;background:#fff}
+  .row{display:flex;gap:8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--sel);border-radius:999px;padding:6px 12px;font-size:15px;display:flex;align-items:center;gap:6px}
+  .chip b{cursor:pointer;color:var(--muted)}
+  .hidden{display:none!important}
+  .screen{display:flex;flex-direction:column;gap:16px}
+  .scenario{font-size:22px;line-height:1.35;font-weight:600}
+  .turn{font-size:14px;text-transform:uppercase;letter-spacing:1px;color:var(--red);font-weight:700}
+  .big{font-size:72px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;line-height:1}
+  .status{text-align:center;font-size:18px;min-height:26px}
+  svg{display:block;margin:0 auto}
+  table{width:100%;border-collapse:collapse;font-size:16px}
+  td{padding:8px 4px;border-bottom:1px solid var(--line)}
+  td:last-child{text-align:right;font-weight:700}
+  .verdict{font-size:26px;font-weight:800;text-align:center}
+  .types{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .types div{background:var(--sel);border-radius:12px;padding:10px 4px}
+  .types b{display:block;font-size:20px}
+  .types small{color:var(--muted)}
+  .warn{background:#fbe9e7;border:1px solid #f1c4bd;color:#7a2a20}
+
+  /* Cámara */
+  .stage{position:relative;width:100%;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:3/4}
+  .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .stage.mirror video,.stage.mirror canvas{transform:scaleX(-1)}
+  .stage .hud{position:absolute;left:0;right:0;bottom:0;padding:10px 12px;
+    background:linear-gradient(transparent,rgba(0,0,0,.65));color:#fff;display:flex;justify-content:space-between;align-items:flex-end}
+  .stage .hud .deg{font-size:54px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .stage .hud .msg{font-size:15px;max-width:60%;text-align:right}
+  .stage .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;text-align:center;padding:20px}
+  #snap{width:100%;border-radius:16px;display:block}
+</style>
+</head>
+<body>
+<main>
+
+  <!-- PORTADA -->
+  <section id="s-home" class="screen">
+    <h1>お辞儀 <span>Ojigi</span></h1>
+    <p>Cada jugador recibe una situación y tiene que hacer la reverencia con el ángulo correcto. El móvil mide cuánto se inclina.</p>
+
+    <div class="card">
+      <h2 style="margin-bottom:10px">Jugadores</h2>
+      <div class="row">
+        <input id="pname" placeholder="Nombre" maxlength="16">
+        <button id="addp" style="width:auto;padding:12px 18px">+</button>
+      </div>
+      <div id="plist" class="chips" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <p class="muted" style="margin-bottom:8px">Medir con</p>
+      <div class="row" id="methods">
+        <button class="ghost" data-m="sensor">📱 Sensor</button>
+        <button class="ghost" data-m="camera">📷 Cámara</button>
+      </div>
+      <p class="muted" style="margin:14px 0 8px">Rondas por jugador</p>
+      <div class="row" id="rounds">
+        <button class="ghost" data-r="2">2</button>
+        <button class="ghost" data-r="3">3</button>
+        <button class="ghost" data-r="5">5</button>
+      </div>
+    </div>
+
+    <div class="card" id="howto"></div>
+
+    <div id="sensorWarn" class="card warn hidden"></div>
+
+    <button id="start" class="red">Empezar juego</button>
+    <button id="free" class="ghost">Modo práctica (ver el ángulo en directo)</button>
+  </section>
+
+  <!-- SITUACIÓN -->
+  <section id="s-turn" class="screen hidden">
+    <div class="turn" id="turnLabel"></div>
+    <div class="card"><p class="scenario" id="scenarioText"></p></div>
+    <p class="muted" id="turnHelp"></p>
+    <button id="measure" class="red">Estoy listo — medir</button>
+    <button id="skip" class="ghost">Cambiar situación</button>
+  </section>
+
+  <!-- MEDICIÓN -->
+  <section id="s-measure" class="screen hidden">
+    <div class="turn" id="measureLabel"></div>
+    <div class="status" id="mstatus"></div>
+    <div id="measureCamSlot"></div>
+    <div id="measureSensorBox">
+      <svg id="gauge" width="300" height="190" viewBox="0 0 300 190"></svg>
+      <div class="big" id="angleLive">0°</div>
+    </div>
+    <button id="stop" class="ghost">Terminar ya</button>
+  </section>
+
+  <!-- RESULTADO -->
+  <section id="s-result" class="screen hidden">
+    <div class="turn" id="resLabel"></div>
+    <div class="verdict" id="verdict"></div>
+    <canvas id="snap" class="hidden"></canvas>
+    <svg id="gaugeRes" width="300" height="190" viewBox="0 0 300 190"></svg>
+    <div class="card">
+      <table>
+        <tr><td>Tu reverencia</td><td id="rMeasured"></td></tr>
+        <tr><td>Lo correcto</td><td id="rTarget"></td></tr>
+        <tr><td>Diferencia</td><td id="rDiff"></td></tr>
+        <tr><td>Puntos</td><td id="rPts"></td></tr>
+      </table>
+    </div>
+    <p class="muted" id="rExplain"></p>
+    <button id="retry" class="ghost">Repetir medición (no cuenta)</button>
+    <button id="next" class="red">Siguiente</button>
+  </section>
+
+  <!-- MARCADOR -->
+  <section id="s-end" class="screen hidden">
+    <h1>Marcador final</h1>
+    <div class="card"><table id="scoreTable"></table></div>
+    <div class="types">
+      <div><b>15°</b>Eshaku<br><small>会釈</small></div>
+      <div><b>30°</b>Keirei<br><small>敬礼</small></div>
+      <div><b>45°</b>Saikeirei<br><small>最敬礼</small></div>
+    </div>
+    <button id="again" class="red">Jugar otra vez</button>
+  </section>
+
+  <!-- PRÁCTICA -->
+  <section id="s-free" class="screen hidden">
+    <h2>Modo práctica</h2>
+    <p class="muted" id="freeHelp"></p>
+    <div id="freeCamSlot"></div>
+    <div id="freeSensorBox">
+      <svg id="gaugeFree" width="300" height="190" viewBox="0 0 300 190"></svg>
+      <div class="big" id="angleFree">0°</div>
+    </div>
+    <div class="status" id="freeType"></div>
+    <button id="zero" class="red">Poner a cero</button>
+    <button id="back" class="ghost">Volver</button>
+  </section>
+
+  <!-- Escenario de cámara (se mueve entre pantallas) -->
+  <div id="stage" class="stage hidden">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="overlay"></canvas>
+    <div class="hud"><div class="deg" id="camDeg">—</div><div class="msg" id="camMsg"></div></div>
+    <div class="loading" id="camLoading">Cargando…</div>
+  </div>
+  <button id="flip" class="ghost hidden">🔄 Cambiar cámara (delantera / trasera)</button>
+
+</main>
+
+<script>
+/* ================= Datos ================= */
+const TYPES = {
+  15:{name:"Eshaku (会釈)", desc:"Saludo ligero de 15°: cruzarse con alguien, saludos cotidianos, entrar o salir de una sala."},
+  30:{name:"Keirei (敬礼)", desc:"Reverencia formal de 30°: recibir a clientes, presentarse, dar las gracias a un superior."},
+  45:{name:"Saikeirei (最敬礼)", desc:"Reverencia máxima de 45°: disculpas serias, gratitud profunda, ceremonias."}
+};
+const SCENARIOS = [
+  ["Te cruzas con tu jefe en el pasillo de la oficina.",15],
+  ["Entras en la sala de reuniones donde ya están tus compañeros.",15],
+  ["Saludas al vecino por la mañana al sacar la basura.",15],
+  ["El dependiente del konbini te da el cambio.",15],
+  ["Un compañero te sujeta la puerta del ascensor.",15],
+  ["Recibes a un cliente importante en la entrada de la empresa.",30],
+  ["Te presentas al empezar una entrevista de trabajo.",30],
+  ["Le das las gracias a tu profesor por ayudarte con un examen.",30],
+  ["Conoces a los padres de tu pareja por primera vez.",30],
+  ["Despides a un cliente al terminar una reunión de negocios.",30],
+  ["Tu empresa ha enviado un pedido equivocado y pides perdón al cliente en persona.",45],
+  ["Le das las gracias a alguien que te ha salvado de un accidente.",45],
+  ["Pides perdón al dueño de una casa por romperle un jarrón muy valioso.",45],
+  ["En la boda, das las gracias a los invitados en nombre de la familia.",45],
+  ["Tu jefe te ha conseguido un ascenso enorme y se lo agradeces de corazón.",45]
+];
+const HELP = {
+  sensor:{
+    howto:"<b>Cómo sujetar el móvil:</b> pegado al pecho (sobre el esternón), en vertical y con la pantalla hacia fuera. Ponte recto, pulsa el botón, espera la cuenta atrás, inclínate, aguanta un segundo y vuelve a subir.",
+    turn:"Pasa el móvil al jugador. Que se lo ponga en el pecho y pulse cuando esté recto.",
+    free:"Ponte el móvil en el pecho, quédate recto y pulsa «Poner a cero». Luego inclínate."
+  },
+  camera:{
+    howto:"<b>Cómo colocar el móvil:</b> apoyado en vertical sobre una mesa o estantería, a la altura de la cintura más o menos. El jugador se pone <b>de perfil</b> a 2–3 m, con el cuerpo entero (o de rodillas para arriba) dentro de la imagen. Mejor con buena luz y sin gente detrás.",
+    turn:"El jugador se pone de perfil delante de la cámara. Alguien pulsa el botón; durante la cuenta atrás tiene que estar recto.",
+    free:"Ponte de perfil delante de la cámara, recto, y pulsa «Poner a cero». Luego inclínate."
+  }
+};
+
+/* ================= Utilidades ================= */
+const $ = id => document.getElementById(id);
+function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden")); $(id).classList.remove("hidden"); window.scrollTo(0,0); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function vibrate(ms){ try{ navigator.vibrate && navigator.vibrate(ms); }catch(e){} }
+function showWarn(t){ const w=$("sensorWarn"); w.textContent=t; w.classList.remove("hidden"); }
+function hideWarn(){ $("sensorWarn").classList.add("hidden"); }
+
+/* ================= Fuente: SENSOR ================= */
+const Sensor = {
+  g:null, g0:null, on:false, gotData:false, motionSeen:false, ALPHA:0.25,
+  push(v){ this.gotData=true; this.g = this.g ? this.g.map((c,i)=>c+this.ALPHA*(v[i]-c)) : v; onSample(); },
+  async enable(){
+    if(this.on) return true;
+    if(!window.isSecureContext){ showWarn("Esta página no está abierta desde un enlace https://, así que el navegador no deja leer el sensor."); return false; }
+    try{
+      if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
+        const r = await DeviceMotionEvent.requestPermission();
+        if(r!=="granted"){ showWarn("Sin permiso para el sensor de movimiento. Recarga la página y pulsa «Permitir»."); return false; }
+      }
+      if(typeof DeviceOrientationEvent!=="undefined" && typeof DeviceOrientationEvent.requestPermission==="function"){
+        try{ await DeviceOrientationEvent.requestPermission(); }catch(e){}
+      }
+      window.addEventListener("devicemotion", e=>{
+        const a=e.accelerationIncludingGravity; if(!a||a.x===null) return;
+        if(!this.motionSeen){ this.motionSeen=true; this.g=null; this.g0=null; }
+        this.push([a.x,a.y,a.z]);
+      });
+      window.addEventListener("deviceorientation", e=>{
+        if(this.motionSeen||e.beta==null) return;
+        const b=e.beta*Math.PI/180, gm=(e.gamma||0)*Math.PI/180;
+        this.push([-Math.cos(b)*Math.sin(gm), Math.sin(b), Math.cos(b)*Math.cos(gm)]);
+      });
+      this.on = true;
+      setTimeout(()=>{ if(!this.gotData) showWarn("No llegan datos del sensor. Prueba en Chrome o Safari, o usa el modo cámara."); },1500);
+      return true;
+    }catch(err){ showWarn("No se pudo activar el sensor: "+err.message); return false; }
+  },
+  ready(){ return !!this.g; },
+  calibStart(){}, calibSample(){},
+  calibrate(){ if(this.g) this.g0=this.g.slice(); },
+  angle(){
+    const g=this.g, g0=this.g0; if(!g||!g0) return 0;
+    const dot=g[0]*g0[0]+g[1]*g0[1]+g[2]*g0[2], n=Math.hypot(...g)*Math.hypot(...g0);
+    return n ? Math.acos(Math.max(-1,Math.min(1,dot/n)))*180/Math.PI : 0;
+  },
+  armAt:8, endAt:6
+};
+
+/* ================= Fuente: CÁMARA ================= */
+const MP_VER = "0.10.14";
+const MP_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
+const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+const BONES = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[24,26],[26,28]];
+
+const Camera = {
+  landmarker:null, stream:null, facing:"environment", running:false, lastT:-1,
+  raw:null, smooth:null, base:0, calib:[], lm:null, pts:null, ALPHA:0.45,
+  armAt:10, endAt:8,
+  async enable(){
+    if(!window.isSecureContext){ showWarn("La cámara solo funciona desde un enlace https://."); return false; }
+    $("stage").classList.remove("hidden");
+    $("camLoading").classList.remove("hidden");
+    try{
+      if(!this.stream) await this.startStream();
+      if(!this.landmarker){
+        $("camLoading").textContent = "Cargando el detector de postura… (solo la primera vez)";
+        const mp = await import(`${MP_URL}/vision_bundle.mjs`);
+        const fileset = await mp.FilesetResolver.forVisionTasks(`${MP_URL}/wasm`);
+        const opts = d => ({ baseOptions:{ modelAssetPath:MODEL_URL, delegate:d }, runningMode:"VIDEO", numPoses:1,
+          minPoseDetectionConfidence:0.5, minPosePresenceConfidence:0.5, minTrackingConfidence:0.5 });
+        try{ this.landmarker = await mp.PoseLandmarker.createFromOptions(fileset, opts("GPU")); }
+        catch(e){ this.landmarker = await mp.PoseLandmarker.createFromOptions(fileset, opts("CPU")); }
+      }
+      $("camLoading").classList.add("hidden");
+      if(!this.running){ this.running=true; requestAnimationFrame(()=>this.loop()); }
+      return true;
+    }catch(err){
+      $("camLoading").textContent = "No se pudo iniciar la cámara: "+(err.name==="NotAllowedError"?"no has dado permiso.":err.message);
+      showWarn("Problema con la cámara: "+(err.name==="NotAllowedError"?"permiso denegado. Actívalo en los ajustes del navegador.":err.message));
+      return false;
+    }
+  },
+  async startStream(){
+    if(this.stream) this.stream.getTracks().forEach(t=>t.stop());
+    this.stream = await navigator.mediaDevices.getUserMedia({audio:false,
+      video:{facingMode:this.facing, width:{ideal:720}, height:{ideal:960}}});
+    const v=$("video"); v.srcObject=this.stream; await v.play();
+    $("stage").classList.toggle("mirror", this.facing==="user");
+    this.raw=this.smooth=null;
+  },
+  async flip(){ this.facing = this.facing==="user"?"environment":"user"; try{ await this.startStream(); }catch(e){ showWarn(e.message); } },
+  stop(){
+    this.running=false;
+    if(this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
+    $("stage").classList.add("hidden"); $("flip").classList.add("hidden");
+  },
+  loop(){
+    if(!this.running) return;
+    const v=$("video");
+    if(v.readyState>=2 && v.currentTime!==this.lastT && this.landmarker){
+      this.lastT=v.currentTime;
+      let res=null;
+      try{ res=this.landmarker.detectForVideo(v, performance.now()); }catch(e){}
+      this.process(res, v.videoWidth, v.videoHeight);
+      onSample();
+    }
+    requestAnimationFrame(()=>this.loop());
+  },
+  process(res, W, H){
+    const L = res && res.landmarks && res.landmarks[0];
+    const ok = L && [11,12,23,24].every(i=>L[i] && (L[i].visibility===undefined || L[i].visibility>0.3));
+    if(!ok){ this.raw=null; this.lm=null; this.draw(W,H); return; }
+    const P = L.map(p=>({x:p.x*W, y:p.y*H, v:p.visibility??1}));
+    const S = {x:(P[11].x+P[12].x)/2, y:(P[11].y+P[12].y)/2};
+    const Hp= {x:(P[23].x+P[24].x)/2, y:(P[23].y+P[24].y)/2};
+    // ángulo con signo del tronco (cadera→hombros) respecto a la vertical
+    const r = Math.atan2(S.x-Hp.x, Hp.y-S.y)*180/Math.PI;
+    this.raw = r;
+    this.smooth = this.smooth==null ? r : this.smooth + this.ALPHA*(r-this.smooth);
+    this.lm = {P,S,H:Hp};
+    this.draw(W,H);
+  },
+  draw(W,H,ctxOverride){
+    const c=$("overlay");
+    const ctx = ctxOverride || c.getContext("2d");
+    if(!ctxOverride){ if(c.width!==W||c.height!==H){c.width=W;c.height=H;} ctx.clearRect(0,0,W,H); }
+    if(!this.lm) return;
+    const {P,S,H:Hp}=this.lm, k=Math.max(W,H)/640;
+    ctx.lineCap="round";
+    ctx.strokeStyle="rgba(255,255,255,.8)"; ctx.lineWidth=4*k;
+    BONES.forEach(([a,b])=>{ if(P[a].v>0.3&&P[b].v>0.3){ ctx.beginPath(); ctx.moveTo(P[a].x,P[a].y); ctx.lineTo(P[b].x,P[b].y); ctx.stroke(); }});
+    // vertical de referencia
+    const len = Math.hypot(S.x-Hp.x, S.y-Hp.y);
+    ctx.setLineDash([10*k,8*k]); ctx.strokeStyle="rgba(255,255,255,.9)"; ctx.lineWidth=3*k;
+    ctx.beginPath(); ctx.moveTo(Hp.x,Hp.y); ctx.lineTo(Hp.x,Hp.y-len); ctx.stroke(); ctx.setLineDash([]);
+    // tronco
+    ctx.strokeStyle="#e0343b"; ctx.lineWidth=9*k;
+    ctx.beginPath(); ctx.moveTo(Hp.x,Hp.y); ctx.lineTo(S.x,S.y); ctx.stroke();
+    ctx.fillStyle="#e0343b"; [S,Hp].forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,8*k,0,7);ctx.fill();});
+    if(P[0].v>0.3){ ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(P[0].x,P[0].y,7*k,0,7); ctx.fill(); }
+  },
+  ready(){ return this.raw!=null; },
+  calibStart(){ this.calib=[]; },
+  calibSample(){ if(this.smooth!=null) this.calib.push(this.smooth); },
+  calibrate(){
+    const s = this.calib.slice(-20);
+    this.base = s.length ? s.reduce((a,b)=>a+b,0)/s.length : (this.smooth||0);
+  },
+  angle(){ return this.smooth==null ? 0 : Math.abs(this.smooth-this.base); },
+  snapshot(angle){
+    const v=$("video"), W=v.videoWidth, H=v.videoHeight; if(!W) return;
+    const c=$("snap"); c.width=W; c.height=H;
+    const ctx=c.getContext("2d");
+    ctx.save();
+    if(this.facing==="user"){ ctx.translate(W,0); ctx.scale(-1,1); }
+    ctx.drawImage(v,0,0,W,H); this.draw(W,H,ctx);
+    ctx.restore();
+    const k=Math.max(W,H)/640;
+    ctx.fillStyle="rgba(0,0,0,.55)"; ctx.fillRect(0,H-70*k,W,70*k);
+    ctx.fillStyle="#fff"; ctx.font=`800 ${46*k}px system-ui,sans-serif`; ctx.textBaseline="middle";
+    ctx.fillText(Math.round(angle)+"°", 16*k, H-35*k);
+  }
+};
+
+/* ================= Estado de juego ================= */
+let players=[], roundsPer=3, method="sensor", queue=[], turnIdx=0, current=null;
+let mode=null, phase=null, peak=0, startedAt=0, phaseT=0, armed=false, held=[];
+const src = () => method==="camera" ? Camera : Sensor;
+
+function renderPlayers(){
+  $("plist").innerHTML = players.map((p,i)=>`<span class="chip">${esc(p.name)} <b data-i="${i}">✕</b></span>`).join("")
+    || '<span class="muted">Añade al menos un jugador</span>';
+  $("plist").querySelectorAll("b").forEach(b=>b.onclick=()=>{players.splice(+b.dataset.i,1);renderPlayers();});
+}
+function setRounds(r){ roundsPer=r; document.querySelectorAll("#rounds button").forEach(b=>b.classList.toggle("on",+b.dataset.r===r)); }
+function setMethod(m){
+  method=m; hideWarn();
+  document.querySelectorAll("#methods button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+  $("howto").innerHTML = `<p class="muted">${HELP[m].howto}</p>`;
+  try{ localStorage.setItem("ojigi-method",m); }catch(e){}
+}
+function placeStage(slotId){
+  const isCam = method==="camera";
+  ["measureSensorBox","freeSensorBox"].forEach(id=>$(id).classList.toggle("hidden",isCam));
+  if(isCam){ $(slotId).appendChild($("stage")); $(slotId).appendChild($("flip")); $("stage").classList.remove("hidden"); $("flip").classList.remove("hidden"); }
+}
+
+$("addp").onclick=()=>{ const n=$("pname").value.trim(); if(!n) return; players.push({name:n,score:0}); $("pname").value=""; renderPlayers(); };
+$("pname").onkeydown=e=>{ if(e.key==="Enter") $("addp").click(); };
+document.querySelectorAll("#rounds button").forEach(b=>b.onclick=()=>setRounds(+b.dataset.r));
+document.querySelectorAll("#methods button").forEach(b=>b.onclick=()=>setMethod(b.dataset.m));
+$("flip").onclick=()=>Camera.flip();
+
+$("start").onclick = async ()=>{
+  if(!players.length){ $("pname").focus(); return; }
+  if(method==="sensor" && !await Sensor.enable()) return;
+  players.forEach(p=>p.score=0);
+  const pool=shuffle(SCENARIOS.slice()); queue=[]; let k=0;
+  for(let r=0;r<roundsPer;r++) for(const p of players){ queue.push({player:p, sc:pool[k%pool.length]}); k++; }
+  turnIdx=0; showTurn();
+};
+$("free").onclick = async ()=>{
+  $("freeHelp").textContent = HELP[method].free;
+  mode="free"; show("s-free"); placeStage("freeCamSlot");
+  if(!await src().enable()){ mode=null; return; }
+  src().calibrate();
+};
+$("zero").onclick = ()=>{ const s=src(); s.calibStart(); s.calibSample(); s.calibrate(); };
+$("back").onclick = ()=>{ mode=null; Camera.stop(); show("s-home"); };
+
+function showTurn(){
+  current=queue[turnIdx];
+  $("turnLabel").textContent=`Turno de ${current.player.name} · ${turnIdx+1}/${queue.length}`;
+  $("scenarioText").textContent=current.sc[0];
+  $("turnHelp").textContent=HELP[method].turn;
+  show("s-turn");
+}
+$("skip").onclick = ()=>{
+  const used=new Set(queue.map(q=>q.sc[0]));
+  current.sc = shuffle(SCENARIOS.filter(s=>!used.has(s[0])))[0] || shuffle(SCENARIOS.slice())[0];
+  showTurn();
+};
+$("measure").onclick = ()=>startMeasure();
+$("retry").onclick = ()=>{ current.player.score-=current.pts; startMeasure(); };
+$("stop").onclick = ()=>finishMeasure();
+
+async function startMeasure(){
+  $("measureLabel").textContent=current.player.name;
+  $("angleLive").textContent="—"; $("camDeg").textContent="—";
+  drawGauge($("gauge"),0,null);
+  show("s-measure"); placeStage("measureCamSlot");
+  $("mstatus").textContent = method==="camera" ? "Preparando la cámara…" : "Esperando al sensor…";
+  if(method==="camera" && !await Camera.enable()) return;
+  mode="measure"; phase="countdown"; phaseT=performance.now(); peak=0; armed=false; held=[];
+  src().calibStart();
+}
+
+/* ================= Bucle por muestra ================= */
+function typeLabel(a){ return a<7?"Recto":a<22?"≈ Eshaku (15°)":a<37?"≈ Keirei (30°)":a<60?"≈ Saikeirei (45°)":"¡Demasiado!"; }
+function setMsg(t){ $("mstatus").innerHTML=t; $("camMsg").innerHTML = method==="camera" ? t : ""; }
+
+function onSample(){
+  const s=src(), now=performance.now();
+  if(mode==="free"){
+    if(method==="sensor" && s.ready() && !Sensor.g0) Sensor.calibrate();
+    if(!s.ready()){ $("freeType").textContent = method==="camera"?"No te veo: ponte de perfil y entero en la imagen":"…"; $("camDeg").textContent="—"; return; }
+    const a=s.angle();
+    $("angleFree").textContent=Math.round(a)+"°"; $("camDeg").textContent=Math.round(a)+"°";
+    $("freeType").textContent=typeLabel(a);
+    $("camMsg").textContent="";
+    drawGauge($("gaugeFree"),a,null);
+    return;
+  }
+  if(mode!=="measure") return;
+
+  if(phase==="countdown"){
+    if(!s.ready()){
+      phaseT=now; s.calibStart();
+      setMsg(method==="camera" ? "No te veo: ponte <b>de perfil</b> y entero en la imagen" : "Esperando al sensor…");
+      return;
+    }
+    s.calibSample();
+    const left = 3 - Math.floor((now-phaseT)/1000);
+    if(left>0){ setMsg(`Quieto y recto… <b>${left}</b>`); return; }
+    s.calibrate(); phase="bow"; startedAt=now;
+    setMsg("<b>¡Inclínate!</b>"); vibrate(80);
+  }
+  if(phase==="bow"){
+    if(!s.ready()){ setMsg("¡Te he perdido! Sigue dentro de la imagen"); if(now-startedAt>15000) finishMeasure(); return; }
+    const a=s.angle();
+    $("angleLive").textContent=Math.round(a)+"°"; $("camDeg").textContent=Math.round(a)+"°";
+    drawGauge($("gauge"),a,null);
+    if(a>s.armAt){ armed=true; held.push(a); setMsg("Aguanta… y vuelve a subir"); }
+    if(a>peak){ peak=a; if(method==="camera" && armed) Camera.snapshot(a); }
+    if(armed && peak>s.armAt+2 && a < Math.min(s.endAt, peak*0.3)) finishMeasure();
+    if(now-startedAt>15000) finishMeasure();
+  }
+}
+
+function measuredAngle(){
+  // ángulo mantenido: media del 20 % superior de las muestras (evita picos por tirón)
+  if(!held.length) return peak;
+  const s=held.slice().sort((a,b)=>b-a);
+  const top=s.slice(0,Math.max(3,Math.ceil(s.length*0.2)));
+  return top.reduce((x,y)=>x+y,0)/top.length;
+}
+
+function finishMeasure(){
+  if(mode!=="measure") return;
+  mode=null; phase=null; vibrate([60,60,60]);
+  const m=Math.round(measuredAngle()), t=current.sc[1], d=Math.abs(m-t);
+  const pts = d<=5?3 : d<=10?2 : d<=15?1 : 0;
+  current.pts=pts; current.player.score+=pts;
+  $("resLabel").textContent=`${current.player.name} · ${current.sc[0]}`;
+  $("verdict").textContent = pts===3?"¡Perfecto! 🙇":pts===2?"¡Muy bien!":pts===1?"Casi…":(m<t?"Te has quedado corto":"¡Te has pasado!");
+  $("verdict").style.color = pts>=2?"var(--ok)":pts===1?"var(--mid)":"var(--red)";
+  $("rMeasured").textContent=m+"°";
+  $("rTarget").textContent=`${t}° · ${TYPES[t].name}`;
+  $("rDiff").textContent=d+"°";
+  $("rPts").textContent="+"+pts;
+  $("rExplain").textContent=TYPES[t].desc;
+  const hasSnap = method==="camera" && held.length>0;
+  $("snap").classList.toggle("hidden", !hasSnap);
+  drawGauge($("gaugeRes"),m,t);
+  $("next").textContent = turnIdx+1<queue.length ? "Siguiente turno" : "Ver marcador";
+  if(method==="camera"){ $("stage").classList.add("hidden"); $("flip").classList.add("hidden"); }
+  show("s-result");
+}
+$("next").onclick = ()=>{ turnIdx++; if(turnIdx<queue.length) showTurn(); else showEnd(); };
+
+function showEnd(){
+  Camera.stop();
+  const sorted=players.slice().sort((a,b)=>b.score-a.score), max=roundsPer*3;
+  $("scoreTable").innerHTML = sorted.map((p,i)=>`<tr><td>${i===0?"🏆 ":""}${esc(p.name)}</td><td>${p.score} / ${max}</td></tr>`).join("");
+  show("s-end");
+}
+$("again").onclick = ()=>show("s-home");
+
+/* ================= Medidor ================= */
+function drawGauge(svg, angle, target){
+  const cx=60, cy=170, R=140;
+  const pt=(deg,r)=>[cx+r*Math.sin(deg*Math.PI/180), cy-r*Math.cos(deg*Math.PI/180)];
+  const arc=(a1,a2,r)=>{const [x1,y1]=pt(a1,r),[x2,y2]=pt(a2,r);return `M${x1},${y1} A${r},${r} 0 0 1 ${x2},${y2}`;};
+  let h=`<path d="${arc(0,90,R)}" fill="none" stroke="#e3d9c7" stroke-width="14" stroke-linecap="round"/>`;
+  if(target!=null){
+    h+=`<path d="${arc(Math.max(0,target-5),target+5,R)}" fill="none" stroke="#2f7d4f" stroke-width="14"/>`;
+    h+=`<path d="${arc(Math.max(0,target-10),Math.max(0,target-5),R)}" fill="none" stroke="#c98a1b" stroke-width="14" opacity=".6"/>`;
+    h+=`<path d="${arc(target+5,target+10,R)}" fill="none" stroke="#c98a1b" stroke-width="14" opacity=".6"/>`;
+  }
+  [15,30,45].forEach(d=>{ const [x1,y1]=pt(d,R-12),[x2,y2]=pt(d,R+12),[tx,ty]=pt(d,R+26);
+    h+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#7a7065" stroke-width="2"/>`;
+    h+=`<text x="${tx}" y="${ty+4}" font-size="12" fill="#7a7065" text-anchor="middle">${d}°</text>`; });
+  const a=Math.max(0,Math.min(95,angle));
+  const [hx,hy]=pt(a,110), [px,py]=pt(a,R), [hdx,hdy]=pt(a,128);
+  h+=`<line x1="${cx}" y1="${cy}" x2="${hx}" y2="${hy}" stroke="#1d1a16" stroke-width="10" stroke-linecap="round"/>`;
+  h+=`<circle cx="${hdx}" cy="${hdy}" r="14" fill="#b7282e"/>`;
+  h+=`<line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy+20}" stroke="#1d1a16" stroke-width="10" stroke-linecap="round"/>`;
+  h+=`<circle cx="${px}" cy="${py}" r="6" fill="#1d1a16"/>`;
+  svg.innerHTML=h;
+}
+
+/* ================= Inicio ================= */
+renderPlayers(); setRounds(3);
+let saved=null; try{ saved=localStorage.getItem("ojigi-method"); }catch(e){}
+setMethod(saved==="camera"?"camera":"sensor");
+drawGauge($("gaugeFree"),0,null);
+if(!window.isSecureContext) showWarn("Esta página no está abierta desde un enlace https://, así que el navegador no dejará usar el sensor ni la cámara.");
+</script>
+</body>
+</html>
